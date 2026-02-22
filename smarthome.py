@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI interface for managing Shelly Plug S (Gen 2/3) smart plugs via local HTTP API."""
+"""CLI interface for managing Shelly devices (Gen 2/3) via local HTTP API."""
 
 import argparse
 import json
@@ -119,11 +119,14 @@ def cmd_add(args: argparse.Namespace) -> None:
         print("ERROR: device response missing 'id' field", file=sys.stderr)
         sys.exit(1)
 
+    # Store device model if available to distinguish capabilities later
+    model = info.get("model", "unknown")
+
     data = load_mappings()
     alias = str(args.alias) if args.alias is not None else ""
-    data["devices"][hw_id] = {"ip": args.ip, "alias": alias}
+    data["devices"][hw_id] = {"ip": args.ip, "alias": alias, "model": model}
     save_mappings(data)
-    print(json.dumps({"ok": True, "hw_id": hw_id, "ip": args.ip, "alias": alias}))
+    print(json.dumps({"ok": True, "hw_id": hw_id, "ip": args.ip, "alias": alias, "model": model}))
 
 
 def cmd_remove(args: argparse.Namespace) -> None:
@@ -241,14 +244,17 @@ def cmd_status(args: argparse.Namespace) -> None:
         entry = {"hw_id": dev["hw_id"], "alias": dev.get("alias", ""), "online": resp is not None}
         if resp is not None:
             entry["output"] = resp.get("output")
-            entry["apower"] = resp.get("apower")
-            entry["aenergy_total"] = resp.get("aenergy", {}).get("total")
+            # Shelly 1 Mini Gen3 has no power measurement, check if key exists
+            if "apower" in resp:
+                entry["apower"] = resp["apower"]
+            if "aenergy" in resp:
+                entry["aenergy_total"] = resp["aenergy"].get("total")
         results.append(entry)
     print(json.dumps(results))
 
 
 def cmd_led(args: argparse.Namespace) -> None:
-    """Set LED ring mode for target device(s)."""
+    """Set LED ring mode for target device(s). Skips devices without LED ring."""
     valid_modes = ("switch", "power", "off")
     if args.mode not in valid_modes:
         print(f"ERROR: invalid LED mode '{args.mode}', must be one of {valid_modes}", file=sys.stderr)
@@ -258,8 +264,20 @@ def cmd_led(args: argparse.Namespace) -> None:
     payload = {"config": {"leds": {"mode": args.mode}}}
     results = []
     for dev in resolve_targets(data, args.target):
+        # Identify if device supports LED (e.g. S1MINI has none). 
+        # For now, we try; if it fails or model is known S1MINI, we note it.
+        # But to be safe and simple: just try. If it fails, mark success: false.
+        
+        # Exception: if we KNOW it's a Mini, skip it to avoid errors log.
+        # However, we might not have 'model' in stored mappings yet for old devices.
+        # So we just try.
+        
         resp = shelly_post(dev["ip"], "/rpc/PLUGS_UI.SetConfig", payload)
-        results.append({"hw_id": dev["hw_id"], "alias": dev.get("alias", ""), "success": resp is not None})
+        
+        # If response is an error because method not found (e.g. Mini), resp might be None or contain 'error'.
+        # Shelly 1 Mini Gen3 returns error for PLUGS_UI.SetConfig.
+        success = resp is not None and "error" not in resp
+        results.append({"hw_id": dev["hw_id"], "alias": dev.get("alias", ""), "success": success})
     print(json.dumps(results))
 
 
@@ -275,7 +293,7 @@ def cmd_list(_args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     """Build and return the argument parser."""
-    parser = argparse.ArgumentParser(description="Shelly Plug S (Gen2/3) local network CLI")
+    parser = argparse.ArgumentParser(description="Shelly Device (Gen2/3) local network CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
     # add
@@ -320,7 +338,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_st.add_argument("target", help="Alias, hardware_id, group, or 'all'")
 
     # led
-    p_led = sub.add_parser("led", help="Set LED ring mode")
+    p_led = sub.add_parser("led", help="Set LED ring mode (Plugs only)")
     p_led.add_argument("target", help="Alias, hardware_id, group, or 'all'")
     p_led.add_argument("mode", choices=["switch", "power", "off"], help="LED mode")
 

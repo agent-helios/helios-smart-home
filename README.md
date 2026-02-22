@@ -1,17 +1,23 @@
 # Helios Smart Home CLI
 
-CLI-Tool zur lokalen Steuerung von **Shelly Plug S Gen 3** und **Plus Plug S** Steckdosen über die Shelly RPC-API (Gen 2/3). Entwickelt als Schnittstelle für KI-Agenten — alle Ausgaben sind maschinenlesbar (JSON auf stdout, Fehler auf stderr).
+CLI-Tool zur lokalen Steuerung von **Shelly Geräten (Gen 2/3)** (z.B. Plug S, 1 Mini Gen3) über die Shelly RPC-API. Entwickelt als Schnittstelle für KI-Agenten — alle Ausgaben sind maschinenlesbar (JSON auf stdout, Fehler auf stderr).
+
+## Unterstützte Geräte
+
+- **Shelly Plug S Gen 3 / Plus Plug S** (Schalten, Messen, LED)
+- **Shelly 1 Mini Gen 3** (Schalten, kein Messen, keine LED)
+- Generell alle Gen 2/3 Geräte mit `Switch` Komponente
 
 ## Voraussetzungen
 
 - Python 3.10+
 - `requests` — `pip install requests`
-- Shelly Plugs müssen im selben lokalen Netzwerk erreichbar sein
+- Shelly Geräte müssen im selben lokalen Netzwerk erreichbar sein
 
 ## Installation
 
 ```bash
-git clone https://github.com/Moritz/helios-smart-home.git
+git clone https://github.com/agent-helios/helios-smart-home.git
 cd helios-smart-home
 pip install requests
 ```
@@ -19,14 +25,14 @@ pip install requests
 ## Schnellstart
 
 ```bash
-# Gerät hinzufügen (Alias "1" für physisch beschriftete Steckdose)
-python smarthome.py add 192.168.1.50 1
+# Gerät hinzufügen (Alias "lampe" für IP)
+python smarthome.py add 192.168.1.50 lampe
 
 # Einschalten
-python smarthome.py on 1
+python smarthome.py on lampe
 
 # Status abfragen
-python smarthome.py status 1
+python smarthome.py status lampe
 
 # Alle Geräte auflisten
 python smarthome.py list
@@ -58,9 +64,11 @@ python smarthome.py list
 | `on <ziel>` | Relais einschalten |
 | `off <ziel>` | Relais ausschalten |
 | `toggle <ziel>` | Relais-Zustand umschalten |
-| `status <ziel>` | Status abfragen (Ein/Aus, Leistung in Watt, Energie) |
-| `led <ziel> <mode>` | LED-Modus setzen: `switch`, `power` oder `off` |
+| `status <ziel>` | Status abfragen (Ein/Aus, Leistung in Watt*, Energie*) |
+| `led <ziel> <mode>` | LED-Modus setzen: `switch`, `power` oder `off` (nur Plugs) |
 | `list` | Alle Geräte und Gruppen anzeigen |
+
+*\*Falls vom Gerät unterstützt (z.B. Plug S)*
 
 ## Ziel-Auflösung
 
@@ -68,7 +76,7 @@ Das `<ziel>`-Argument wird automatisch aufgelöst:
 
 1. `all` — alle registrierten Geräte
 2. **Gruppenname** — alle Mitglieder der Gruppe
-3. **Alias** — z.B. `1`, `2`, `Drucker`
+3. **Alias** — z.B. `lampe`, `drucker`
 4. **Hardware-ID** — direkte Zuordnung
 
 ## Datenstruktur
@@ -78,10 +86,10 @@ Geräte und Gruppen werden in `mappings.json` neben dem Skript gespeichert:
 ```json
 {
   "devices": {
-    "shellyplugsg3-abc123": { "ip": "192.168.1.50", "alias": "1" }
+    "shellyplugsg3-abc123": { "ip": "192.168.1.50", "alias": "lampe", "model": "SNSN-0013A" }
   },
   "groups": {
-    "wohnzimmer": ["1", "2"]
+    "wohnzimmer": ["lampe"]
   }
 }
 ```
@@ -97,7 +105,7 @@ Beispiel `status`-Antwort:
 [
   {
     "hw_id": "shellyplugsg3-abc123",
-    "alias": "1",
+    "alias": "lampe",
     "online": true,
     "output": true,
     "apower": 42.5,
