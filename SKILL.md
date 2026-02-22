@@ -11,10 +11,10 @@ Backed by [helios-smart-home](https://github.com/agent-helios/helios-smart-home)
 ## Script
 
 ```bash
-python3 ~/.openclaw/workspace/skills/smart-home/repo/smarthome.py <command> [args]
+python3 ~/.openclaw/workspace/skills/smart-home/smarthome.py <command> [args]
 ```
 
-Device mappings are stored in `repo/mappings.json` (next to the script). Shelly devices must be reachable on the local network.
+Device mappings are stored in `mappings.json` (next to the script). Shelly devices must be reachable on the local network.
 
 ## Commands
 
@@ -63,6 +63,7 @@ Status example (1 Mini):
 
 ## Usage Notes
 
+- **Complex requests:** If Moritz asks for "relaxed light in living room" (intersection of groups), first run `list` to see group members, manually calculate the intersection/target devices, then call `on/off` for the specific device aliases.
 - Present power in a human-friendly way: `42.5 W`, energy as `1.23 kWh` (only if available in JSON)
 - If a device is unreachable, `online: false` — tell Moritz it's offline
 - `alias` is the friendly name (e.g. "schreibtisch", "drucker", "1"); prefer using aliases over hw_ids
